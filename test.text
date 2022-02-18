@@ -1,0 +1,198 @@
+package com.di.rest;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import com.di.api.ai.lucene.model.BasicModelInfo;
+import com.di.api.ai.lucene.model.ModelContent;
+import com.di.api.ai.lucene.model.ModelEvent;
+import com.di.api.ai.lucene.model.Resource;
+
+public class RestUtil {
+
+	public static void writeModelPost(ModelContent data, String targetUrl) {
+
+		RestTemplate restTemplate = new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+
+		HttpEntity<ModelContent> deepEntity = new HttpEntity<ModelContent>(data, headers);
+
+		restTemplate.postForObject(targetUrl, deepEntity, String.class);
+
+	}
+
+	public static void writeModelPut(ModelContent data, String targetUrl) {
+
+		RestTemplate restTemplate = new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		Map<String, String> param = new HashMap<String, String>();
+
+		HttpEntity<ModelContent> requestEntity = new HttpEntity<ModelContent>(data, headers);
+
+		restTemplate.exchange(targetUrl, HttpMethod.PUT, requestEntity, String.class, param);
+
+	}
+
+	public static void writeModelEvent(ModelEvent data, String targetUrl) {
+
+		RestTemplate restTemplate = new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		Map<String, String> param = new HashMap<String, String>();
+
+		HttpEntity<ModelEvent> requestEntity = new HttpEntity<ModelEvent>(data, headers);
+
+		try {
+
+			restTemplate.exchange(targetUrl, HttpMethod.POST, requestEntity, String.class, param);
+		} catch (Exception e) {
+			System.out.println("Unable log event:" + e.getMessage());
+			e.printStackTrace();
+		}
+
+	}
+
+	public static void writeResourcePost(Resource data, String targetUrl) {
+
+		RestTemplate restTemplate = new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		Map<String, String> param = new HashMap<String, String>();
+
+		data.getConcepts().add(data.getResourceName());
+		// data.getConcepts().add(data.getDescription());
+		data.getConcepts().add(data.getResourceType());
+		data.getConcepts().add(data.getIncidentId() != null ? data.getIncidentId() : ".");
+
+		List<String> removeSkipWord = new ArrayList<String>();
+
+		for (String skip : data.getConcepts()) {
+			if (skip != null) {
+				
+				String temp = skip.replaceAll("_", " ");
+				temp = temp.replaceAll("-", " ");
+				temp = temp.replaceAll("-", " ");
+				temp = temp.replaceAll("\\+", " ");
+				temp = temp.replaceAll("\\.", " ");
+				temp = temp.replaceAll(",", " ");
+				temp = temp.replaceAll(";", " ");
+				
+				removeSkipWord.add(temp);
+				
+			}
+		}
+		removeSkipWord.addAll(data.getConcepts());
+		
+		data.setConcepts(removeSkipWord);
+
+		HttpEntity<Resource> requestEntity = new HttpEntity<Resource>(data, headers);
+
+		try {
+
+			restTemplate.exchange(targetUrl, HttpMethod.POST, requestEntity, String.class, param);
+
+		} catch (HttpClientErrorException e) {
+			System.out.print(
+					"Create new document in opensearch works with post. It seems Spring internal error. But resources created in the background. However there should be a permanent fix."
+							+ e.getMessage());
+		}
+
+	}
+
+	public static ModelContent getModel(String targetUrl) {
+
+		try {
+
+			RestTemplate restTemplate = new RestTemplate();
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			Map<String, String> param = new HashMap<String, String>();
+
+			HttpEntity<String> requestEntity = new HttpEntity<>(null, headers);
+
+			ResponseEntity<ModelContent> response = restTemplate.exchange(targetUrl, HttpMethod.GET, requestEntity,
+					ModelContent.class, param);
+
+			return response.getBody();
+		} catch (Throwable e) {
+			System.out.println("Error:" + e.getMessage());
+			return null;
+		}
+
+	}
+
+	public static void dropIndex(String targetUrl) {
+
+		try {
+
+			RestTemplate restTemplate = new RestTemplate();
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			Map<String, String> param = new HashMap<String, String>();
+
+			HttpEntity<String> requestEntity = new HttpEntity<>(null, headers);
+
+			restTemplate.exchange(targetUrl, HttpMethod.DELETE, requestEntity, String.class, param);
+
+		} catch (Throwable e) {
+
+			System.out.println("Unable to drop index:" + e.getMessage());
+
+		}
+
+	}
+
+	public static BasicModelInfo searchModel(String targetUrl, String data) {
+
+		try {
+
+			RestTemplate restTemplate = new RestTemplate();
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			Map<String, String> param = new HashMap<String, String>();
+
+			HttpEntity<String> requestEntity = new HttpEntity<String>(data, headers);
+
+			ResponseEntity<BasicModelInfo> response = restTemplate.exchange(targetUrl, HttpMethod.POST, requestEntity,
+					BasicModelInfo.class, param);
+
+			return response.getBody();
+		} catch (Throwable e) {
+			System.out.println("Error:" + e.getMessage());
+			return BasicModelInfo.getEmptyBasicModelInfo();
+		}
+
+	}
+
+	public static BasicModelInfo searchResource(String targetUrl, String data) {
+
+		try {
+
+			RestTemplate restTemplate = new RestTemplate();
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<String> requestEntity = new HttpEntity<String>(data, headers);
+			ResponseEntity<BasicModelInfo> response = restTemplate.exchange(targetUrl, HttpMethod.POST, requestEntity,
+					BasicModelInfo.class);
+
+			return response.getBody();
+		} catch (Throwable e) {
+			System.out.println("Error:" + e.getMessage());
+			return null;
+		}
+
+	}
+
+}
